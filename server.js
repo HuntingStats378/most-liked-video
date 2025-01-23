@@ -15,7 +15,7 @@ const GITHUB_FILE_PATH = process.env.GITHUB_FILE_PATH;
 // Enable CORS
 app.use(cors());
 
-// Fetch data from private GitHub repo (modified for multiple files)
+// Fetch data from private GitHub repo (with better error handling)
 const fetchGitHubData = async () => {
     const filePaths = [
         "youtube/video/json/mostliked.json",
@@ -37,20 +37,22 @@ const fetchGitHubData = async () => {
 
             try {
                 const parsedData = JSON.parse(rawData); // Validate JSON format
+                console.log(`Successfully parsed data from: ${filePath}`);
                 return parsedData;
             } catch (jsonError) {
                 console.error(`Error parsing JSON for file ${filePath}:`, rawData);
-                throw new Error(`Invalid JSON in file: ${filePath}`);
+                return []; // Skip this file and return an empty array
             }
         } catch (fetchError) {
             console.error(`Error fetching data from ${filePath}:`, fetchError.message);
-            throw new Error(`Failed to fetch file: ${filePath}`);
+            return []; // Skip this file and return an empty array
         }
     });
 
     const allData = await Promise.all(fileFetches);
-    return allData.flat(); // Combine data from all files
+    return allData.flat(); // Combine data from all successfully parsed files
 };
+
 
 // Fetch video details from YouTube in batches
 const fetchYouTubeDetails = async (videoIds) => {
