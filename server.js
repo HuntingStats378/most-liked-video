@@ -17,17 +17,35 @@ app.use(cors());
 
 // Fetch data from private GitHub repo
 const fetchGitHubData = async () => {
-    const filePaths = process.env.GITHUB_FILE_PATH.split(','); // Split multiple file paths
+    const directoryPath = "youtube/video/json"; // Base directory in GitHub
+    const pattern = /^mostliked\d*\.json$/; // Regex to match file names like "mostliked.json" or "mostliked0.json"
+
     try {
-        const fileFetches = filePaths.map(async (filePath) => {
-            const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${filePath.trim()}`;
-            const response = await axios.get(url, {
+        // Fetch the list of files in the directory
+        const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${directoryPath}`;
+        const response = await axios.get(url, {
+            headers: {
+                Authorization: `token ${GITHUB_TOKEN}`,
+                Accept: "application/vnd.github.v3+json",
+            },
+        });
+
+        if (!Array.isArray(response.data)) {
+            throw new Error("Expected a directory containing multiple files.");
+        }
+
+        // Filter files matching the pattern
+        const matchingFiles = response.data.filter((file) => pattern.test(file.name));
+
+        // Fetch and parse each matching file
+        const fileFetches = matchingFiles.map(async (file) => {
+            const fileResponse = await axios.get(file.download_url, {
                 headers: {
                     Authorization: `token ${GITHUB_TOKEN}`,
                     Accept: "application/vnd.github.v3.raw",
                 },
             });
-            return JSON.parse(response.data); // Assuming each file contains valid JSON
+            return JSON.parse(fileResponse.data); // Parse the JSON content
         });
 
         // Resolve all promises and combine the data
