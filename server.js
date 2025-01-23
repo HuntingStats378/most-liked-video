@@ -15,50 +15,41 @@ const GITHUB_FILE_PATH = process.env.GITHUB_FILE_PATH;
 // Enable CORS
 app.use(cors());
 
-// Fetch data from private GitHub repo
+// Fetch data from private GitHub repo (modified for multiple files)
 const fetchGitHubData = async () => {
-    const directoryPath = "youtube/video/json"; // Base directory
-    const pattern = /^mostliked\d*\.json$/;
+    const filePaths = [
+        "youtube/video/json/mostliked.json",
+        "youtube/video/json/mostliked0.json",
+    ];
 
-    try {
-        // Fetch directory listing
-        const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${directoryPath}`;
-        const response = await axios.get(url, {
-            headers: {
-                Authorization: `token ${GITHUB_TOKEN}`,
-                Accept: "application/vnd.github.v3+json",
-            },
-        });
-
-        // Filter files matching the pattern
-        const matchingFiles = response.data.filter((file) => pattern.test(file.name));
-
-        // Fetch file contents
-        const fileFetches = matchingFiles.map(async (file) => {
-            console.log(`Fetching file: ${file.download_url}`);
-            const fileResponse = await axios.get(file.download_url, {
+    const fileFetches = filePaths.map(async (filePath) => {
+        const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${filePath}`;
+        console.log(`Fetching file: ${url}`);
+        try {
+            const fileResponse = await axios.get(url, {
                 headers: {
                     Authorization: `token ${GITHUB_TOKEN}`,
                     Accept: "application/vnd.github.v3.raw",
                 },
             });
 
-            // Ensure the content is JSON-parsed
-            try {
-                return JSON.parse(fileResponse.data);
-            } catch (error) {
-                console.error(`Error parsing JSON for file ${file.download_url}:`, error.message);
-                throw new Error(`Invalid JSON in file: ${file.download_url}`);
-            }
-        });
+            const rawData = fileResponse.data;
 
-        // Combine all data
-        const filesData = await Promise.all(fileFetches);
-        return filesData.flat();
-    } catch (error) {
-        console.error("Error fetching data from GitHub:", error.message);
-        throw new Error("Failed to fetch data from GitHub");
-    }
+            try {
+                const parsedData = JSON.parse(rawData); // Validate JSON format
+                return parsedData;
+            } catch (jsonError) {
+                console.error(`Error parsing JSON for file ${filePath}:`, rawData);
+                throw new Error(`Invalid JSON in file: ${filePath}`);
+            }
+        } catch (fetchError) {
+            console.error(`Error fetching data from ${filePath}:`, fetchError.message);
+            throw new Error(`Failed to fetch file: ${filePath}`);
+        }
+    });
+
+    const allData = await Promise.all(fileFetches);
+    return allData.flat(); // Combine data from all files
 };
 
 // Fetch video details from YouTube in batches
