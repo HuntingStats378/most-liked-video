@@ -17,11 +17,11 @@ app.use(cors());
 
 // Fetch data from private GitHub repo
 const fetchGitHubData = async () => {
-    const directoryPath = "youtube/video/json"; // Base directory in GitHub
-    const pattern = /^mostliked\d*\.json$/; // Regex to match file names like "mostliked.json" or "mostliked0.json"
+    const directoryPath = "youtube/video/json"; // Base directory
+    const pattern = /^mostliked\d*\.json$/;
 
     try {
-        // Fetch the list of files in the directory
+        // Fetch directory listing
         const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${directoryPath}`;
         const response = await axios.get(url, {
             headers: {
@@ -30,27 +30,31 @@ const fetchGitHubData = async () => {
             },
         });
 
-        if (!Array.isArray(response.data)) {
-            throw new Error("Expected a directory containing multiple files.");
-        }
-
         // Filter files matching the pattern
         const matchingFiles = response.data.filter((file) => pattern.test(file.name));
 
-        // Fetch and parse each matching file
+        // Fetch file contents
         const fileFetches = matchingFiles.map(async (file) => {
+            console.log(`Fetching file: ${file.download_url}`);
             const fileResponse = await axios.get(file.download_url, {
                 headers: {
                     Authorization: `token ${GITHUB_TOKEN}`,
                     Accept: "application/vnd.github.v3.raw",
                 },
             });
-            return JSON.parse(fileResponse.data); // Parse the JSON content
+
+            // Ensure the content is JSON-parsed
+            try {
+                return JSON.parse(fileResponse.data);
+            } catch (error) {
+                console.error(`Error parsing JSON for file ${file.download_url}:`, error.message);
+                throw new Error(`Invalid JSON in file: ${file.download_url}`);
+            }
         });
 
-        // Resolve all promises and combine the data
+        // Combine all data
         const filesData = await Promise.all(fileFetches);
-        return filesData.flat(); // Combine all file data into a single array
+        return filesData.flat();
     } catch (error) {
         console.error("Error fetching data from GitHub:", error.message);
         throw new Error("Failed to fetch data from GitHub");
