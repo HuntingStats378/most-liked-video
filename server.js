@@ -15,43 +15,21 @@ const GITHUB_FILE_PATH = process.env.GITHUB_FILE_PATH;
 // Enable CORS
 app.use(cors());
 
-// Fetch data from private GitHub repo (with JSON debugging)
+// Fetch data from private GitHub repo
 const fetchGitHubData = async () => {
-    const filePaths = [
-        "youtube/video/json/mostliked.json",
-        "youtube/video/json/mostliked0.json",
-    ];
-
-    const fileFetches = filePaths.map(async (filePath) => {
-        const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${filePath}`;
-        console.log(`Fetching file: ${url}`);
-        try {
-            const fileResponse = await axios.get(url, {
-                headers: {
-                    Authorization: `token ${GITHUB_TOKEN}`,
-                    Accept: "application/vnd.github.v3.raw",
-                },
-            });
-
-            const rawData = fileResponse.data;
-
-            try {
-                const parsedData = JSON.parse(rawData); // Validate JSON format
-                console.log(`Successfully parsed data from: ${filePath}`);
-                return parsedData;
-            } catch (jsonError) {
-                console.error(`Error parsing JSON for file ${filePath}:`, jsonError.message);
-                console.log("Raw content causing the issue:", rawData);
-                return []; // Skip this file and return an empty array
-            }
-        } catch (fetchError) {
-            console.error(`Error fetching data from ${filePath}:`, fetchError.message);
-            return []; // Skip this file and return an empty array
-        }
-    });
-
-    const allData = await Promise.all(fileFetches);
-    return allData.flat(); // Combine data from all successfully parsed files
+    const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE_PATH}`;
+    try {
+        const response = await axios.get(url, {
+            headers: {
+                Authorization: `token ${GITHUB_TOKEN}`,
+                Accept: "application/vnd.github.v3.raw",
+            },
+        });
+        return response.data; // JSON content of the file
+    } catch (error) {
+        console.error("Error fetching data from GitHub:", error.message);
+        throw new Error("Failed to fetch data from GitHub");
+    }
 };
 
 // Fetch video details from YouTube in batches
