@@ -17,15 +17,22 @@ app.use(cors());
 
 // Fetch data from private GitHub repo
 const fetchGitHubData = async () => {
-    const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE_PATH}`;
+    const filePaths = process.env.GITHUB_FILE_PATH.split(','); // Split multiple file paths
     try {
-        const response = await axios.get(url, {
-            headers: {
-                Authorization: `token ${GITHUB_TOKEN}`,
-                Accept: "application/vnd.github.v3.raw",
-            },
+        const fileFetches = filePaths.map(async (filePath) => {
+            const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${filePath.trim()}`;
+            const response = await axios.get(url, {
+                headers: {
+                    Authorization: `token ${GITHUB_TOKEN}`,
+                    Accept: "application/vnd.github.v3.raw",
+                },
+            });
+            return JSON.parse(response.data); // Assuming each file contains valid JSON
         });
-        return response.data; // JSON content of the file
+
+        // Resolve all promises and combine the data
+        const filesData = await Promise.all(fileFetches);
+        return filesData.flat(); // Combine all file data into a single array
     } catch (error) {
         console.error("Error fetching data from GitHub:", error.message);
         throw new Error("Failed to fetch data from GitHub");
